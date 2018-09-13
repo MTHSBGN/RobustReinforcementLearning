@@ -8,7 +8,7 @@
 
 ## Formalization of the problem
 
-See formalization.pdf
+See [formalization.pdf](formalization.pdf)
 
 ## Definition of a benchmark
 
