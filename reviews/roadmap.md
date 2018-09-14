@@ -10,9 +10,10 @@ This file contains an updated view of what has been done and a schedule of what 
 
 ## October
 
-- [ ] Definition of the nuisance parameters
+- [ ] Complete formalization of the problem
+- [ ] Write 'Related work' section
 - [ ] Implementation of the first benchmark algorithm
-- [ ] Determine first experiement and architecture
+- [ ] Determine the learning algorithm robust to the nuisance parameters + architecture
 
 ## November
 

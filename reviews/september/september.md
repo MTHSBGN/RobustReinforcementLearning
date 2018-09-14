@@ -34,3 +34,4 @@ The nuisance parameters have not been decided yet but here are some possible can
 - [Domain Randomization for Transferring Deep Neural Networks from Simulation to the Real World](https://arxiv.org/abs/1703.06907) - Josh Tobin, Rachel Fong, Alex Ray, Jonas Schneider, Wojciech Zaremba, Pieter Abbeel
 - [Reinforcement Learning: An Introduction](http://incompleteideas.net/book/the-book-2nd.html) - Richard Sutton and Andrew Barto
 - [Proximal Policy Optimization Algorithms](https://arxiv.org/abs/1707.06347) - John Schulman, Filip Wolski, Prafulla Dhariwal, Alec Radford, Oleg Klimov
+- [Deep RL Bootcamp](https://sites.google.com/view/deep-rl-bootcamp/lectures) - Berkeley CA
