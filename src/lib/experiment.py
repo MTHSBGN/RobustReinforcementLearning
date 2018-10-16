@@ -4,26 +4,34 @@ from lib.agents import Agent
 
 
 class Experiment:
-    def __init__(self, agent_name, env_name):
+    def __init__(self, agent_name, env_name, num_episodes=1000, summary=False, render=False):
         self.simulator = gym.make(env_name)
         self.agent: Agent = agent_name()
+        self.num_episodes = num_episodes
+        self.summary = summary
+        self.render = render
+
         self.rewards = []
         self.mean_reward = 10
 
-    def run(self, num_episode):
-        for episode in range(num_episode):
+    def run(self):
+        for episode in range(self.num_episodes):
             obs = self.simulator.reset()
             done = False
 
             self.rewards = []
 
             while not done:
-                # self.simulator.render()
+                if self.render:
+                    self.simulator.render()
+
                 action = self.agent.select_action(obs)
                 obs, reward, done, _ = self.simulator.step(action)
                 self.rewards.append(reward)
 
-            self.episode_summary(episode)
+            if self.summary:
+                self.episode_summary(episode)
+
             self.mean_reward = self.mean_reward * \
                 0.99 + sum(self.rewards) * 0.01
 
