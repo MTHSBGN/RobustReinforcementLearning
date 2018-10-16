@@ -1,12 +1,5 @@
-import gym
+from lib.experiment import Experiment
+from lib.agents.ac_agent import ActorCriticAgent
 
-from agent import Agent
-from environment import Environment
-from experiment import Experiment
-
-env = Environment('CartPole-v0')
-agent = Agent()
-
-exp = Experiment(agent, env)
+exp = Experiment(ActorCriticAgent, "CartPole-v0")
 exp.run(1000)
-

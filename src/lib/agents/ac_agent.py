@@ -3,8 +3,10 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.distributions import Categorical
 
+from lib.agents.agent import Agent
 
-class Agent(nn.Module):
+
+class ActorCriticAgent(Agent, nn.Module):
     def __init__(self):
         super().__init__()
 
@@ -14,10 +16,9 @@ class Agent(nn.Module):
         self.logits = nn.Linear(64, 2)
         self.value = nn.Linear(64, 1)
 
-        self.optimizer = optim.Adam(self.parameters(), lr=3e-4)
+        self.optimizer = optim.RMSprop(self.parameters(), 0.0005)
 
         self.log_probs = []
-        self.rewards = []
         self.values = []
 
     def forward(self, x):
@@ -40,26 +41,22 @@ class Agent(nn.Module):
 
         return action.numpy()
 
-    def observe(self, reward):
-        self.rewards.append(reward)
-
-    def improve(self):
+    def improve(self, rewards):
         cum_reward = 0
-        for i in reversed(range(len(self.rewards))):
-            cum_reward += self.rewards[i]
-            self.rewards[i] = cum_reward
+        for i in reversed(range(len(rewards))):
+            cum_reward += rewards[i]
+            rewards[i] = cum_reward
 
         self.values = torch.cat(self.values)
-        self.rewards = torch.Tensor(self.rewards)
-        advantage = self.values - self.rewards
+        rewards = torch.Tensor(rewards)
+        advantage = self.values - rewards
 
         loss = torch.sum(torch.stack(self.log_probs) * advantage)
-        loss += nn.functional.smooth_l1_loss(self.values, self.rewards)
+        loss += nn.functional.smooth_l1_loss(self.values, rewards)
 
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
         self.log_probs = []
-        self.rewards = []
         self.values = []
