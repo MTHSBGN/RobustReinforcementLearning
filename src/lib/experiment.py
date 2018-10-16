@@ -6,7 +6,10 @@ from lib.agents import Agent
 class Experiment:
     def __init__(self, agent_name, env_name, num_episodes=1000, summary=False, render=False):
         self.simulator = gym.make(env_name)
-        self.agent: Agent = agent_name()
+        self.agent: Agent = agent_name(
+            self.simulator.action_space,
+            self.simulator.observation_space
+        )
         self.num_episodes = num_episodes
         self.summary = summary
         self.render = render

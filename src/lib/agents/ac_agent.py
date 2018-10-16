@@ -7,13 +7,14 @@ from lib.agents.agent import Agent
 
 
 class ActorCriticAgent(Agent, nn.Module):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, action_space, observation_space):
+        Agent.__init__(self, action_space, observation_space)
+        nn.Module.__init__(self)
 
-        self.fc1 = nn.Linear(4, 64)
+        self.fc1 = nn.Linear(self.observation_dim, 64)
         self.fc2 = nn.Linear(64, 64)
 
-        self.logits = nn.Linear(64, 2)
+        self.logits = nn.Linear(64, len(self.actions))
         self.value = nn.Linear(64, 1)
 
         self.optimizer = optim.RMSprop(self.parameters(), 0.0005)
