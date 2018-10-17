@@ -1,13 +1,12 @@
 from lib.experiment import Experiment
-import lib.agents
-
+from lib.agents.ac_agent import ActorCriticAgent
 
 exp = Experiment(
-    lib.agents.ActorCriticAgent,
+    ActorCriticAgent,
     "CartPole-v0",
-    num_episodes=10,
-    summary=False,
-    render=True
+    num_episodes=1000,
+    summary=True,
+    render=False
 )
 
 exp.run()

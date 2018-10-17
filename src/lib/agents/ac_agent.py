@@ -17,7 +17,7 @@ class ActorCriticAgent(Agent, nn.Module):
         self.logits = nn.Linear(64, len(self.actions))
         self.value = nn.Linear(64, 1)
 
-        self.optimizer = optim.RMSprop(self.parameters(), 0.0005)
+        self.optimizer = optim.RMSprop(self.parameters(), 0.001)
 
         self.log_probs = []
         self.values = []
@@ -50,10 +50,12 @@ class ActorCriticAgent(Agent, nn.Module):
 
         self.values = torch.cat(self.values)
         rewards = torch.Tensor(rewards)
-        advantage = self.values - rewards
+        advantage = rewards - self.values
 
-        loss = torch.sum(torch.stack(self.log_probs) * advantage)
-        loss += nn.functional.smooth_l1_loss(self.values, rewards)
+        policy_loss = torch.mean(-torch.stack(self.log_probs) * advantage)
+        value_loss = nn.functional.smooth_l1_loss(self.values, rewards)
+
+        loss = policy_loss + value_loss
 
         self.optimizer.zero_grad()
         loss.backward()
