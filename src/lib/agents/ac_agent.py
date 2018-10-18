@@ -6,6 +6,7 @@ from torch.distributions import Categorical
 import numpy as np
 
 from lib.agents.agent import Agent
+from lib.utils import discounted_returns
 
 GAMMA = 0.99
 
@@ -52,8 +53,7 @@ class ActorCriticAgent(Agent, nn.Module):
         obs = np.vstack([d['observations'] for d in data])
         _, values = self.forward(torch.Tensor(obs))
 
-        cum_rewards = self.__compute_discounted_returns(
-            [d['rewards'] for d in data])
+        cum_rewards = discounted_returns([d['rewards'] for d in data], GAMMA)
 
         values = torch.squeeze(values)
         rewards = torch.Tensor(cum_rewards)
@@ -69,17 +69,6 @@ class ActorCriticAgent(Agent, nn.Module):
         self.optimizer.step()
 
         self.log_probs = []
-
-    def __compute_discounted_returns(self, rewards):
-        for reward in rewards:
-            R = 0
-            index = len(reward) - 1
-            for r in reversed(reward):
-                reward[index] = r + GAMMA * R
-                R = reward[index]
-                index -= 1
-
-        return np.concatenate(rewards)
 
     def save(self, path):
         torch.save(self.state_dict(), path)
