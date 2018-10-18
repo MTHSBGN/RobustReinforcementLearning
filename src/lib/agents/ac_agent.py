@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.distributions import Categorical
 
+import numpy as np
+
 from lib.agents.agent import Agent
 
 
@@ -42,14 +44,15 @@ class ActorCriticAgent(Agent, nn.Module):
 
         return action.numpy()
 
-    def improve(self, rewards):
-        cum_reward = 0
-        for i in reversed(range(len(rewards))):
-            cum_reward += rewards[i]
-            rewards[i] = cum_reward
+    def improve(self, data):
+        obs = np.vstack([d['observations'] for d in data])
+        _, values = self.forward(torch.Tensor(obs))
 
-        self.values = torch.cat(self.values)
-        rewards = torch.Tensor(rewards)
+        cum_rewards = self.__compute_cumulative_rewards(
+            [d['rewards'] for d in data])
+
+        self.values = torch.squeeze(values)
+        rewards = torch.Tensor(cum_rewards)
         advantage = rewards - self.values
 
         policy_loss = torch.mean(-torch.stack(self.log_probs) * advantage)
@@ -63,3 +66,15 @@ class ActorCriticAgent(Agent, nn.Module):
 
         self.log_probs = []
         self.values = []
+
+    def __compute_cumulative_rewards(self, rewards):
+        cum_rewards = np.empty(sum(len(x) for x in rewards))
+        index = len(cum_rewards) - 1
+        for reward in rewards:
+            cum_sum = 0
+            for i in reversed(range(len(reward))):
+                cum_sum = reward[i]
+                cum_rewards[index] = cum_sum
+                index -= 1
+
+        return cum_rewards
