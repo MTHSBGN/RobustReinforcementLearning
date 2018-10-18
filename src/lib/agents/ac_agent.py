@@ -13,22 +13,26 @@ class ActorCriticAgent(Agent, nn.Module):
         Agent.__init__(self, action_space, observation_space)
         nn.Module.__init__(self)
 
-        self.fc1 = nn.Linear(self.observation_dim, 64)
-        self.fc2 = nn.Linear(64, 64)
+        self.policy_fc1 = nn.Linear(self.observation_dim, 64)
+        self.policy_fc2 = nn.Linear(64, 64)
+        self.policy_out = nn.Linear(64, len(self.actions))
 
-        self.logits = nn.Linear(64, len(self.actions))
-        self.value = nn.Linear(64, 1)
+        self.value_fc1 = nn.Linear(self.observation_dim, 64)
+        self.value_fc2 = nn.Linear(64, 64)
+        self.value_out = nn.Linear(64, 1)
 
         self.optimizer = optim.RMSprop(self.parameters(), 0.001)
 
         self.log_probs = []
 
     def forward(self, x):
-        x = self.fc1(x)
-        x = self.fc2(x)
+        log_probs = self.policy_fc1(x)
+        log_probs = self.policy_fc2(log_probs)
+        log_probs = self.policy_out(log_probs)
 
-        log_probs = self.logits(x)
-        value = nn.functional.relu(self.value(x))
+        value = self.value_fc1(x)
+        value = self.value_fc2(value)
+        value = self.value_out(value)
 
         return [log_probs, value]
 

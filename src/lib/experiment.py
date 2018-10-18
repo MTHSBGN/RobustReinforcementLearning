@@ -24,7 +24,6 @@ class Experiment:
             'max_reward': 0,
             'min_reward': 9999999,
             'rewards': deque(maxlen=100)
-
         }
 
     def run_episode(self):
