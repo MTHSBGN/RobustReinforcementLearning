@@ -26,9 +26,12 @@ class Experiment:
             'rewards': deque(maxlen=100)
         }
 
+        self.__init_stored_data()
+
     def run_episode(self):
         obs = self.simulator.reset()
 
+        actions = []
         observations = [obs]
         rewards = []
 
@@ -40,6 +43,7 @@ class Experiment:
             obs, reward, done, _ = self.simulator.step(action)
 
             self.diagnostic['timestep'] += 1
+            actions.append(action)
             rewards.append(reward)
 
             if done:
@@ -49,23 +53,19 @@ class Experiment:
 
         self.__update_diagnostic(sum(rewards))
 
-        data = {
-            'observations': np.stack(observations),
-            'rewards': np.array(rewards)
-        }
-
-        return data
+        self.stored_data['actions'].append(np.array(actions))
+        self.stored_data['observations'].append(np.stack(observations))
+        self.stored_data['rewards'].append(np.array(rewards))
 
     def run(self):
-        data = []
         for episode in range(self.num_episodes):
-            data.append(self.run_episode())
+            self.run_episode()
 
             if self.diagnostic['episode'] % self.batch_episode == 0:
                 if self.summary:
                     self.__summary()
-                self.agent.improve(data)
-                data = []
+                self.agent.improve(self.stored_data)
+                self.__init_stored_data()
 
         self.agent.save('test.pt')
 
@@ -108,3 +108,10 @@ class Experiment:
             self.diagnostic['min_reward'] = reward
 
         self.diagnostic['rewards'].append(reward)
+
+    def __init_stored_data(self):
+        self.stored_data = {
+            'actions': [],
+            'observations': [],
+            'rewards': []
+        }

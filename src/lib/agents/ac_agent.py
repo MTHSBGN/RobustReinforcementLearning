@@ -26,9 +26,7 @@ class ActorCriticAgent(Agent, nn.Module):
 
         self.optimizer = optim.RMSprop(self.parameters(), 0.001)
 
-        self.log_probs = []
-
-    def forward(self, x):
+    def forward(self, x, actions=None):
         log_probs = self.policy_fc1(x)
         log_probs = self.policy_fc2(log_probs)
         log_probs = self.policy_out(log_probs)
@@ -36,6 +34,10 @@ class ActorCriticAgent(Agent, nn.Module):
         value = self.value_fc1(x)
         value = self.value_fc2(value)
         value = self.value_out(value)
+
+        if actions is not None:
+            distributions = Categorical(logits=log_probs)
+            log_probs = distributions.log_prob(actions)
 
         return [log_probs, value]
 
@@ -45,21 +47,23 @@ class ActorCriticAgent(Agent, nn.Module):
         m = Categorical(logits=log_probs)
         action = m.sample()
 
-        self.log_probs.append(m.log_prob(action))
-
         return action.numpy()
 
     def improve(self, data):
-        obs = np.vstack([d['observations'] for d in data])
-        _, values = self.forward(torch.Tensor(obs))
+        obs = np.vstack(data['observations'])
+        actions = np.concatenate(data['actions'])
+        log_probs, values = self.forward(
+            torch.Tensor(obs),
+            actions=torch.Tensor(actions)
+        )
 
-        cum_rewards = discounted_returns([d['rewards'] for d in data], GAMMA)
+        cum_rewards = discounted_returns(data['rewards'], GAMMA)
 
         values = torch.squeeze(values)
         rewards = torch.Tensor(cum_rewards)
         advantage = rewards - values
 
-        policy_loss = torch.mean(-torch.stack(self.log_probs) * advantage)
+        policy_loss = torch.mean(-log_probs * advantage)
         value_loss = nn.functional.smooth_l1_loss(values, rewards)
 
         loss = policy_loss + value_loss
@@ -67,8 +71,6 @@ class ActorCriticAgent(Agent, nn.Module):
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-
-        self.log_probs = []
 
     def save(self, path):
         torch.save(self.state_dict(), path)
