@@ -1,8 +1,8 @@
 from lib.experiment import Experiment
-from lib.agents.ac_agent import ActorCriticAgent
+from lib.agents.ppo_agent import PPOAgent
 
 exp = Experiment(
-    ActorCriticAgent,
+    PPOAgent,
     "CartPole-v0",
     num_episodes=1000,
     batch_episode=10,

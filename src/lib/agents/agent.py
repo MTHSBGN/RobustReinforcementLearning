@@ -5,6 +5,9 @@ from abc import ABC, abstractmethod
 
 class Agent(ABC):
     def __init__(self, action_space, observation_space):
+        self.action_space = action_space
+        self.observation_space = observation_space
+
         if isinstance(action_space, Discrete):
             actions = list(range(action_space.n))
 
