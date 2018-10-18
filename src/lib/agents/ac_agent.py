@@ -22,7 +22,6 @@ class ActorCriticAgent(Agent, nn.Module):
         self.optimizer = optim.RMSprop(self.parameters(), 0.001)
 
         self.log_probs = []
-        self.values = []
 
     def forward(self, x):
         x = self.fc1(x)
@@ -40,7 +39,6 @@ class ActorCriticAgent(Agent, nn.Module):
         action = m.sample()
 
         self.log_probs.append(m.log_prob(action))
-        self.values.append(value)
 
         return action.numpy()
 
@@ -51,12 +49,14 @@ class ActorCriticAgent(Agent, nn.Module):
         cum_rewards = self.__compute_cumulative_rewards(
             [d['rewards'] for d in data])
 
-        self.values = torch.squeeze(values)
+        values = torch.squeeze(values)
         rewards = torch.Tensor(cum_rewards)
-        advantage = rewards - self.values
+        advantage = rewards - values
 
         policy_loss = torch.mean(-torch.stack(self.log_probs) * advantage)
-        value_loss = nn.functional.smooth_l1_loss(self.values, rewards)
+        value_loss = nn.functional.smooth_l1_loss(values, rewards)
+
+        # print("{}: {}".format(policy_loss, value_loss))
 
         loss = policy_loss + value_loss
 
@@ -65,7 +65,6 @@ class ActorCriticAgent(Agent, nn.Module):
         self.optimizer.step()
 
         self.log_probs = []
-        self.values = []
 
     def __compute_cumulative_rewards(self, rewards):
         cum_rewards = np.empty(sum(len(x) for x in rewards))
@@ -73,7 +72,7 @@ class ActorCriticAgent(Agent, nn.Module):
         for reward in rewards:
             cum_sum = 0
             for i in reversed(range(len(reward))):
-                cum_sum = reward[i]
+                cum_sum += reward[i]
                 cum_rewards[index] = cum_sum
                 index -= 1
 

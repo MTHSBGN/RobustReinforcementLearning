@@ -3,9 +3,11 @@ import numpy as np
 
 from lib.agents import Agent
 
+from collections import deque
+
 
 class Experiment:
-    def __init__(self, agent_name, env_name, num_episodes=1000, batch_episode=2, summary=False, render=False):
+    def __init__(self, agent_name, env_name, num_episodes=1000, batch_episode=10, summary=False, render=False):
         self.simulator = gym.make(env_name)
         self.agent: Agent = agent_name(
             self.simulator.action_space,
@@ -16,10 +18,13 @@ class Experiment:
         self.summary = summary
         self.render = render
 
-        self.mean_reward = 10
         self.diagnostic = {
-            'current_episode': 0,
-            'current_timestep': 0
+            'episode': 0,
+            'timestep': 0,
+            'max_reward': 0,
+            'min_reward': 9999999,
+            'rewards': deque(maxlen=100)
+
         }
 
     def run_episode(self):
@@ -35,15 +40,15 @@ class Experiment:
             action = self.agent.select_action(obs)
             obs, reward, done, _ = self.simulator.step(action)
 
-            self.diagnostic['current_timestep'] += 1
+            self.diagnostic['timestep'] += 1
             rewards.append(reward)
-            
+
             if done:
                 break
 
             observations.append(obs)
 
-        self.diagnostic['current_episode'] += 1
+        self.__update_diagnostic(sum(rewards))
 
         data = {
             'observations': np.stack(observations),
@@ -57,11 +62,30 @@ class Experiment:
         for episode in range(self.num_episodes):
             data.append(self.run_episode())
 
-            if self.diagnostic['current_episode'] % self.batch_episode == 0:
+            if self.diagnostic['episode'] % self.batch_episode == 0:
+                self.__summary()
                 self.agent.improve(data)
                 data = []
 
         self.simulator.close()
 
-    def evaluate(self):
-        pass
+    def __summary(self):
+        print("##################")
+        print("Episode {} ({})".format(
+            self.diagnostic['episode'],
+            self.diagnostic['timestep']
+        ))
+        print('Max: ', self.diagnostic['max_reward'])
+        print('Min: ', self.diagnostic['min_reward'])
+        print('Mean: ', np.mean(self.diagnostic['rewards']))
+        print('Std: ', np.std(self.diagnostic['rewards']))
+
+    def __update_diagnostic(self, reward):
+        self.diagnostic['episode'] += 1
+
+        if reward > self.diagnostic['max_reward']:
+            self.diagnostic['max_reward'] = reward
+        elif reward < self.diagnostic['min_reward']:
+            self.diagnostic['min_reward'] = reward
+
+        self.diagnostic['rewards'].append(reward)
