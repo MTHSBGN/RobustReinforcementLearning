@@ -7,6 +7,8 @@ import numpy as np
 
 from lib.agents.agent import Agent
 
+GAMMA = 0.99
+
 
 class ActorCriticAgent(Agent, nn.Module):
     def __init__(self, action_space, observation_space):
@@ -50,7 +52,7 @@ class ActorCriticAgent(Agent, nn.Module):
         obs = np.vstack([d['observations'] for d in data])
         _, values = self.forward(torch.Tensor(obs))
 
-        cum_rewards = self.__compute_cumulative_rewards(
+        cum_rewards = self.__compute_discounted_returns(
             [d['rewards'] for d in data])
 
         values = torch.squeeze(values)
@@ -60,8 +62,6 @@ class ActorCriticAgent(Agent, nn.Module):
         policy_loss = torch.mean(-torch.stack(self.log_probs) * advantage)
         value_loss = nn.functional.smooth_l1_loss(values, rewards)
 
-        # print("{}: {}".format(policy_loss, value_loss))
-
         loss = policy_loss + value_loss
 
         self.optimizer.zero_grad()
@@ -70,17 +70,16 @@ class ActorCriticAgent(Agent, nn.Module):
 
         self.log_probs = []
 
-    def __compute_cumulative_rewards(self, rewards):
-        cum_rewards = np.empty(sum(len(x) for x in rewards))
-        index = len(cum_rewards) - 1
+    def __compute_discounted_returns(self, rewards):
         for reward in rewards:
-            cum_sum = 0
-            for i in reversed(range(len(reward))):
-                cum_sum += reward[i]
-                cum_rewards[index] = cum_sum
+            R = 0
+            index = len(reward) - 1
+            for r in reversed(reward):
+                reward[index] = r + GAMMA * R
+                R = reward[index]
                 index -= 1
 
-        return cum_rewards
+        return np.concatenate(rewards)
 
     def save(self, path):
         torch.save(self.state_dict(), path)

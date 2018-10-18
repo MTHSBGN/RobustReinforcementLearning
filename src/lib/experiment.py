@@ -62,7 +62,8 @@ class Experiment:
             data.append(self.run_episode())
 
             if self.diagnostic['episode'] % self.batch_episode == 0:
-                self.__summary()
+                if self.summary:
+                    self.__summary()
                 self.agent.improve(data)
                 data = []
 
@@ -84,7 +85,7 @@ class Experiment:
 
                 if done:
                     break
-                    
+
         self.simulator.close()
 
     def __summary(self):
