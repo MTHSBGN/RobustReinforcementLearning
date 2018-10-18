@@ -66,6 +66,25 @@ class Experiment:
                 self.agent.improve(data)
                 data = []
 
+        self.agent.save('test.pt')
+
+        self.simulator.close()
+
+    def evaluate(self, model_path):
+        self.agent.load(model_path)
+
+        for _ in range(100):
+            obs = self.simulator.reset()
+
+            while True:
+                self.simulator.render()
+
+                action = self.agent.select_action(obs)
+                obs, _, done, _ = self.simulator.step(action)
+
+                if done:
+                    break
+                    
         self.simulator.close()
 
     def __summary(self):

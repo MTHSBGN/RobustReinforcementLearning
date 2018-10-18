@@ -22,3 +22,11 @@ class Agent(ABC):
     @abstractmethod
     def improve(self, rewards):
         pass
+
+    @abstractmethod
+    def save(self, path):
+        pass
+
+    @abstractmethod
+    def load(self, path):
+        pass
