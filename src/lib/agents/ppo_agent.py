@@ -16,9 +16,8 @@ EPSILON = 0.2
 
 
 class PPOAgent(Agent, nn.Module):
-    def __init__(self, action_space, observation_space):
-        Agent.__init__(self, action_space, observation_space)
-        nn.Module.__init__(self)
+    def __init__(self):
+        super().__init__()
 
         self.policy_fc1 = nn.Linear(self.observation_dim, 64)
         self.policy_fc2 = nn.Linear(64, 64)

@@ -4,12 +4,14 @@ from lib.agents.agent import Agent
 
 
 class RandomAgent(Agent):
-    def __init__(self, action_space, observation_space):
-        super().__init__(action_space, observation_space)
-
     def select_action(self, observation):
-        index = random.randint(0, len(self.actions) - 1)
-        return self.actions[index]
+        return random.randint(0, 1)
 
     def improve(self, rewards):
+        pass
+
+    def save(self, path):
+        pass
+
+    def load(self, path):
         pass
