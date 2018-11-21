@@ -16,12 +16,12 @@ This file contains an updated view of what has been done and a schedule of what 
 
 ## November
 
-- [ ] Complete formalization of the problem
-- [ ] Complete PPO algorithm
-- [ ] Determine the learning algorithm robust to the nuisance parameters + architecture
-- [ ] Implementation of a first experiment
+- [x] Complete formalization of the problem
+- [x] Complete PPO algorithm
+- [x] Determine the learning algorithm robust to the nuisance parameters + architecture
 
 ## December
 
+- [ ] Implementation of the first experiment
 - [ ] Assement of results and improvement
 - [ ] Iteration over new experiments
