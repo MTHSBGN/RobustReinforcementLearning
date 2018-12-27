@@ -1,0 +1,8 @@
+gym
+lz4
+numpy
+opencv-python
+ray
+redis==2.10.6
+tensorflow
+torch
