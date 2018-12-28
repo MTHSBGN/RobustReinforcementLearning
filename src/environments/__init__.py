@@ -18,3 +18,10 @@ def make_cartpole_length():
     env = CartPoleLengthEnv(LENGTH_DESCRIPTION)
     env.spec = EnvSpec("CustomCartPole-v0", reward_threshold=195.0)
     return TimeLimit(env, max_episode_steps=200.0)
+
+
+def get_env_creator(env_name):
+    if env_name == "CartPoleGravity":
+        return make_cartpole_gravity
+
+    return make_cartpole_length

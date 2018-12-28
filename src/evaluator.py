@@ -16,12 +16,10 @@ class Evaluator:
             "max_reward": np.max(rewards),
             "min_reward": np.min(rewards),
             "mean_reward": np.mean(rewards),
-            "std_rewards": np.std(rewards)
+            "std_reward": np.std(rewards)
         }
 
-        print(stats)
-
-        return np.mean(rewards) >= self.env.spec.reward_threshold and np.min(rewards) >= 150.0
+        return stats
 
     def _rollout(self, render):
         observation = self.env.reset()
