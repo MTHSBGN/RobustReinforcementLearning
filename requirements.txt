@@ -7,3 +7,4 @@ redis==2.10.6
 tensorflow
 torch
 jupyter
+jupyterlab

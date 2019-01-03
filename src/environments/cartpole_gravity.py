@@ -4,6 +4,7 @@ Copied from http://incompleteideas.net/sutton/book/code/pole.c
 permalink: https://perma.cc/C9ZM-652R
 """
 
+import random
 import math
 import gym
 from gym import spaces, logger
@@ -54,8 +55,8 @@ class CartPoleGravityEnv(gym.Env):
         'video.frames_per_second': 50
     }
 
-    def __init__(self, gravity_description, true_value=True):
-        self.gravity_description = gravity_description
+    def __init__(self, gravity_values, true_value=True):
+        self.gravity_values = gravity_values
         self.true_value = true_value
 
         self.gravity = 9.81
@@ -147,13 +148,18 @@ class CartPoleGravityEnv(gym.Env):
             self.steps_beyond_done += 1
             reward = 0.0
 
-        return np.array(np.append(self.state, self.gravity)), reward, done, {}
+        gravity = self.gravity if self.true_value else self._generate_gravity_value()
+
+        return np.array(np.append(self.state, gravity)), reward, done, {}
 
     def reset(self):
         self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
-        self.gravity = np.round(self.np_random.normal(loc=self.gravity_description[0], scale=self.gravity_description[1]), 1)
+        self.gravity = self._generate_gravity_value()
         self.steps_beyond_done = None
-        return np.array(np.append(self.state, self.gravity))
+
+        gravity = self.gravity if self.true_value else self._generate_gravity_value()
+
+        return np.array(np.append(self.state, gravity))
 
     def render(self, mode='human'):
         screen_width = 600
@@ -212,3 +218,6 @@ class CartPoleGravityEnv(gym.Env):
         if self.viewer:
             self.viewer.close()
             self.viewer = None
+
+    def _generate_gravity_value(self):
+        return random.choice(self.gravity_values)

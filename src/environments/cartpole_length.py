@@ -54,8 +54,9 @@ class CartPoleLengthEnv(gym.Env):
         'video.frames_per_second': 50
     }
 
-    def __init__(self, length_distribution):
+    def __init__(self, length_distribution, true_value=True):
         self.length_distribution = length_distribution
+        self.true_value = true_value
 
         self.gravity = 9.81
         self.masscart = 1.0
@@ -145,13 +146,18 @@ class CartPoleLengthEnv(gym.Env):
             self.steps_beyond_done += 1
             reward = 0.0
 
-        return np.array(np.append(self.state, self.length)), reward, done, {}
+        length = self.length if self.true_value else self._generate_length_value()
+
+        return np.array(np.append(self.state, length)), reward, done, {}
 
     def reset(self):
         self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
         self.length = self.np_random.uniform(self.length_distribution[0], self.length_distribution[1])
         self.steps_beyond_done = None
-        return np.array(np.append(self.state, self.length))
+
+        length = self.length if self.true_value else self._generate_length_value()
+
+        return np.array(np.append(self.state, length))
 
     def render(self, mode='human'):
         screen_width = 600
@@ -210,3 +216,6 @@ class CartPoleLengthEnv(gym.Env):
         if self.viewer:
             self.viewer.close()
             self.viewer = None
+
+    def _generate_length_value(self):
+        return self.np_random.uniform(self.length_distribution[0], self.length_distribution[1])
