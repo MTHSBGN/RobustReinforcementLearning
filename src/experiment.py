@@ -73,7 +73,7 @@ def evaluate(agent, env):
         total_reward = 0
         done = False
 
-       while not done:
+        while not done:
             action = agent.select_actions([observation])[0]
             observation, reward, done, _ = env.step(action)
             total_reward += reward
