@@ -8,3 +8,5 @@ tensorflow
 torch
 jupyter
 jupyterlab
+visdom
+pillow

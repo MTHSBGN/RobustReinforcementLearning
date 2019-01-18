@@ -43,7 +43,7 @@ def make_environment(name, num_envs):
         evaluators.append(CartPoleLengthEnv(LENGTH_DESCRIPTION, False))
 
     if len(evaluators) == 0:
-        raise ValueError("The name given does not correspond to an existing environment")
+        raise ValueError("The given name does not correspond to an existing environment")
 
     for i, env in enumerate(evaluators):
         env.spec = EnvSpec("CustomCartPole-v0", reward_threshold=195.0)

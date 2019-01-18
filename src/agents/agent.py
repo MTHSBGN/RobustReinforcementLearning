@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import datetime
 
 
 class Agent(nn.Module):
@@ -17,9 +16,8 @@ class Agent(nn.Module):
     def step(self, observations, actions, rewards, masks, last_observation):
         raise NotImplementedError
 
-    def save(self):
-        filename = self.__class__.__name__ + datetime.datetime.today().strftime("%Y_%m_%d_%H_%M_%S")
-        torch.save(self.state_dict(), "{}/{}".format(self.models_path, filename))
+    def save(self, filename):
+        torch.save(self.state_dict(), filename)
 
     def load(self, filename):
         path = "{}/{}".format(self.models_path, filename)
