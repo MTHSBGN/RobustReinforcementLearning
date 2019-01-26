@@ -1,0 +1,23 @@
+{
+  "agent": {
+    "name": "ActorCriticAgent"
+  },
+  "environment": {
+    "name": "CartPoleCustom",
+    "num_envs": 8,
+    "parameters": {
+      "gravity": [
+        6,
+        13
+      ],
+      "length": [
+        0.1,
+        1.5
+      ]
+    }
+  },
+  "training": {
+    "num_timesteps": 1000000,
+    "step": 10
+  }
+}

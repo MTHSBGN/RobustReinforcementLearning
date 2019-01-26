@@ -4,7 +4,6 @@ Copied from http://incompleteideas.net/sutton/book/code/pole.c
 permalink: https://perma.cc/C9ZM-652R
 """
 
-import random
 import math
 import gym
 from gym import spaces, logger
@@ -12,7 +11,7 @@ from gym.utils import seeding
 import numpy as np
 
 
-class CartPoleGravityEnv(gym.Env):
+class CartPoleCustomEnv(gym.Env):
     """
     Description:
         A pole is attached by an un-actuated joint to a cart, which moves along a frictionless track. The pendulum starts upright, and the goal is to prevent it from falling over by increasing and reducing the cart's velocity.
@@ -55,12 +54,13 @@ class CartPoleGravityEnv(gym.Env):
         'video.frames_per_second': 50
     }
 
-    def __init__(self, gravity_values, true_value=True):
-        self.gravity_values = gravity_values
+    def __init__(self, distributions, true_value):
+        self.distributions = distributions
         self.true_value = true_value
+        self.fake_gravity = 0
+        self.fake_length = 0
 
-        self.gravity = 9.81
-
+        self.gravity = 9.8
         self.masscart = 1.0
         self.masspole = 0.1
         self.total_mass = (self.masspole + self.masscart)
@@ -80,7 +80,8 @@ class CartPoleGravityEnv(gym.Env):
             np.finfo(np.float32).min,
             -self.theta_threshold_radians * 2,
             np.finfo(np.float32).min,
-            np.finfo(np.float32).min
+            self.distributions["length"][0],
+            self.distributions["gravity"][0]
         ])
 
         high = np.array([
@@ -88,7 +89,8 @@ class CartPoleGravityEnv(gym.Env):
             np.finfo(np.float32).max,
             self.theta_threshold_radians * 2,
             np.finfo(np.float32).max,
-            np.finfo(np.float32).max
+            self.distributions["length"][1],
+            self.distributions["gravity"][1]
         ])
 
         self.action_space = spaces.Discrete(2)
@@ -141,25 +143,29 @@ class CartPoleGravityEnv(gym.Env):
         else:
             if self.steps_beyond_done == 0:
                 logger.warn(
-                    "You are calling 'step()' even though this environment has already returned done = True. " +
-                    "You should always call 'reset()' once you receive 'done = True' " +
-                    "-- any further steps are undefined behavior."
-                )
+                    "You are calling 'step()' even though this environment has already returned done = True. "
+                    "You should always call 'reset()' once you receive 'done = True' "
+                    "-- any further steps are undefined behavior.")
             self.steps_beyond_done += 1
             reward = 0.0
 
-        gravity = self.gravity if self.true_value else self._generate_gravity_value()
+        state = np.append(state, (self.length, self.gravity)) \
+            if self.true_value else np.append(state, (self.fake_length, self.fake_gravity))
 
-        return np.array(np.append(self.state, gravity)), reward, done, {}
+        return state, reward, done, {}
 
     def reset(self):
         self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
-        self.gravity = self._generate_gravity_value()
         self.steps_beyond_done = None
 
-        gravity = self.gravity if self.true_value else self._generate_gravity_value()
+        self.length, self.gravity = self._update_nuisance()
+        self.fake_length, self.fake_gravity = self._update_nuisance()
+        self.polemass_length = (self.masspole * self.length)
 
-        return np.array(np.append(self.state, gravity))
+        state = np.append(self.state, (self.length, self.gravity)) \
+            if self.true_value else np.append(self.state, (self.fake_length, self.fake_gravity))
+
+        return state
 
     def render(self, mode='human'):
         screen_width = 600
@@ -219,5 +225,17 @@ class CartPoleGravityEnv(gym.Env):
             self.viewer.close()
             self.viewer = None
 
-    def _generate_gravity_value(self):
-        return random.choice(self.gravity_values)
+    def _update_nuisance(self):
+        length = self.length
+        gravity = self.gravity
+
+        for key in self.distributions.keys():
+            low, high = self.distributions[key]
+
+            if key == "length":
+                length = self.np_random.uniform(low, high)
+
+            if key == "gravity":
+                gravity = self.np_random.uniform(low, high)
+
+        return length, gravity
