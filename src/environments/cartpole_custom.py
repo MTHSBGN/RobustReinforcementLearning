@@ -1,13 +1,30 @@
 import numpy as np
 
+from gym import spaces
 from gym.envs.classic_control.cartpole import CartPoleEnv
 
 
 class CartPoleCustomEnv(CartPoleEnv):
-    def __init__(self, gravity_bounds=None, length_bounds=None, true_value=True):
+    def __init__(self, gravity=None, length=None, true_value=True):
         super().__init__()
-        self.gravity_bounds = gravity_bounds
-        self.length_bounds = length_bounds
+
+        high = np.array([
+            self.x_threshold * 2,
+            np.finfo(np.float32).max,
+            self.theta_threshold_radians * 2,
+            np.finfo(np.float32).max])
+
+        low = -high
+
+        for bounds in [gravity, length]:
+            if bounds:
+                low = np.append(low, bounds[0])
+                high = np.append(high, bounds[1])
+
+        self.observation_space = spaces.Box(low, high, dtype=np.float32)
+
+        self.gravity_bounds = gravity
+        self.length_bounds = length
         self.true_value = true_value
         self.parameters = []
 

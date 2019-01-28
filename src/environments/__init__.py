@@ -5,22 +5,10 @@ from vec_env import SubprocVecEnv
 from environments.cartpole_custom import CartPoleCustomEnv
 
 
-def make_environment(config):
-    """
-
-    Parameters
-    ----------
-    config: Dict
-        Dictionary containing config information of the environment
-
-    Returns
-    -------
-    SubprocVecEnv
-        A collection of n gym.Env
-    """
+def make_training_environment(config):
     env = None
     if config["name"] == "CartPoleCustom":
-        env = CartPoleCustomEnv(config["parameters"], True)
+        env = CartPoleCustomEnv(**config["parameters"], true_value=True)
 
     if env is None:
         raise ValueError("The given name does not correspond to an existing environment")
