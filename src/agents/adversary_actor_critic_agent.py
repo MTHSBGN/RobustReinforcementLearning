@@ -7,7 +7,7 @@ from torch.distributions import Categorical
 from agents import Agent
 
 
-class ActorCriticAgent(Agent):
+class AdversaryActorCriticAgent(Agent):
     def __init__(self, num_inputs, num_outputs, hidden_size, config=None):
         super().__init__(config)
 
@@ -41,6 +41,9 @@ class ActorCriticAgent(Agent):
         return dist.sample().detach().numpy()
 
     def step(self, observations, actions, rewards, masks, last_observation):
+        num_trajectories = self.config["environment"]["num_envs"]
+        trajectories = [observations[i::num_trajectories] for i in range(num_trajectories)]
+
         observations = torch.FloatTensor(observations)
         actions = torch.FloatTensor(actions)
         returns = torch.FloatTensor(self._compute_returns(last_observation, rewards, masks)).squeeze(1)

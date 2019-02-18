@@ -10,3 +10,6 @@ jupyter
 jupyterlab
 visdom
 pillow
+matplotlib
+pandas
+-e git://github.com/AadityaPatanjali/gym-cartpolemod.git#egg=cartpolemod

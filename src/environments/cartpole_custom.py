@@ -27,12 +27,19 @@ class CartPoleCustomEnv(CartPoleEnv):
         self.length_bounds = length
         self.true_value = true_value
         self.parameters = []
+        self.steps = 0
 
     def step(self, action):
         state, reward, done, info = super().step(action)
+        self.steps += 1
+
+        if self.steps >= 200:
+            done = True
+
         return np.append(state, self.parameters), reward, done, info
 
     def reset(self, gravity=None, length=None):
+        self.steps = 0
         state = super().reset()
 
         if self.gravity_bounds:

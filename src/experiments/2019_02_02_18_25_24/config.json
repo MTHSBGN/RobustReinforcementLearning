@@ -3,19 +3,17 @@
     "name": "ActorCriticAgent"
   },
   "environment": {
-    "name": "CartPoleCustomEnv",
+    "name": "CartPoleCustom",
     "num_envs": 8,
-    "nuisance": {
-      "name": "length",
-      "bounds": [
-        0.1,
-        2.0
+    "parameters": {
+      "gravity": [
+        6.0,
+        13.0
       ]
     }
   },
   "training": {
     "num_timesteps": 2000000,
-    "step": 5,
-    "num_training": 5
+    "step": 10
   }
 }
