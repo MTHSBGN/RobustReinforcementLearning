@@ -6,10 +6,10 @@
     "name": "CartPoleCustomEnv",
     "num_envs": 8,
     "nuisance": {
-      "name": "length",
+      "name": "friction",
       "bounds": [
         0.1,
-        2.0
+        0.9
       ]
     }
   },

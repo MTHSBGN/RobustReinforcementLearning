@@ -219,9 +219,13 @@ class CartPoleCustomEnv(CartPoleModEnv):
         self.nuisance = self.np_random.uniform(self.bounds[0], self.bounds[1]) if not nuisance else nuisance
         self.nuisance_obs = self.nuisance if self.true_value else self.np_random.uniform(self.bounds[0], self.bounds[1])
 
-        if self.nuisance_name == "lenght":
+        if self.nuisance_name == "length":
             self.length = self.nuisance
             self.polemass_length = self.masspole * self.length
+        elif self.nuisance_name == "friction":
+            self.frictioncart = self.nuisance
+        else:
+            raise ValueError("Unknown nuisance parameter")
 
         self.steps = 0
 

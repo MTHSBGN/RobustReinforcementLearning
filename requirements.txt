@@ -1,15 +1,5 @@
 gym
-lz4
 numpy
-opencv-python
-ray
-redis==2.10.6
-tensorflow
 torch
-jupyter
-jupyterlab
-visdom
-pillow
 matplotlib
-pandas
 -e git://github.com/AadityaPatanjali/gym-cartpolemod.git#egg=cartpolemod
