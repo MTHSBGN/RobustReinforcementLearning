@@ -1,48 +1,69 @@
-# -*- coding: utf-8 -*-
 """
 Classic cart-pole system implemented by Rich Sutton et al.
 Copied from http://incompleteideas.net/sutton/book/code/pole.c
 permalink: https://perma.cc/C9ZM-652R
-Modified by Aaditya Ravindran to include friction and random sensor & actuator noise
 """
 
-import logging
 import math
-import random
 import gym
-from gym import spaces
+from gym import spaces, logger
 from gym.utils import seeding
 import numpy as np
 
-logger = logging.getLogger(__name__)
 
+class CartPoleEnv(gym.Env):
+    """
+    Description:
+        A pole is attached by an un-actuated joint to a cart, which moves along a frictionless track. The pendulum starts upright, and the goal is to prevent it from falling over by increasing and reducing the cart's velocity.
 
-class CartPoleModEnv(gym.Env):
+    Source:
+        This environment corresponds to the version of the cart-pole problem described by Barto, Sutton, and Anderson
+
+    Observation:
+        Type: Box(4)
+        Num	Observation                 Min         Max
+        0	Cart Position             -4.8            4.8
+        1	Cart Velocity             -Inf            Inf
+        2	Pole Angle                 -24 deg        24 deg
+        3	Pole Velocity At Tip      -Inf            Inf
+
+    Actions:
+        Type: Discrete(2)
+        Num	Action
+        0	Push cart to the left
+        1	Push cart to the right
+
+        Note: The amount the velocity that is reduced or increased is not fixed; it depends on the angle the pole is pointing. This is because the center of gravity of the pole increases the amount of energy needed to move the cart underneath it
+
+    Reward:
+        Reward is 1 for every step taken, including the termination step
+
+    Starting State:
+        All observations are assigned a uniform random value in [-0.05..0.05]
+
+    Episode Termination:
+        Pole Angle is more than 12 degrees
+        Cart Position is more than 2.4 (center of the cart reaches the edge of the display)
+        Episode length is greater than 200
+        Solved Requirements
+        Considered solved when the average reward is greater than or equal to 195.0 over 100 consecutive trials.
+    """
+
     metadata = {
         'render.modes': ['human', 'rgb_array'],
         'video.frames_per_second': 50
     }
 
-    def __init__(self, case=1):
-        self.__version__ = "0.2.0"
-        print("CartPoleModEnv - Version {}, Noise case: {}".format(self.__version__, case))
+    def __init__(self):
         self.gravity = 9.8
         self.masscart = 1.0
         self.masspole = 0.1
         self.total_mass = (self.masspole + self.masscart)
         self.length = 0.5  # actually half the pole's length
         self.polemass_length = (self.masspole * self.length)
-        self.seed()
-        if case < 4:
-            self.force_mag = 10.0 * (1 + self.addnoise(case))
-            self.case = 1
-        else:
-            self.force_mag = 10.0
-            self.case = case
-
+        self.force_mag = 10.0
         self.tau = 0.02  # seconds between state updates
-        self.frictioncart = 5e-4  # AA Added cart friction
-        self.frictionpole = 2e-6  # AA Added cart friction
+        self.kinematics_integrator = 'euler'
 
         # Angle at which to fail the episode
         self.theta_threshold_radians = 12 * 2 * math.pi / 360
@@ -55,24 +76,14 @@ class CartPoleModEnv(gym.Env):
             self.theta_threshold_radians * 2,
             np.finfo(np.float32).max])
 
-        self.action_space = spaces.Discrete(2)  # AA Set discrete states back to 2
+        self.action_space = spaces.Discrete(2)
         self.observation_space = spaces.Box(-high, high, dtype=np.float32)
 
+        self.seed()
         self.viewer = None
         self.state = None
 
         self.steps_beyond_done = None
-
-    def addnoise(self, x):
-        return {
-            1: 0,
-            2: self.np_random.uniform(low=-0.05, high=0.05, size=(1,)),  # 5% actuator noise
-            3: self.np_random.uniform(low=-0.10, high=0.10, size=(1,)),  # 10% actuator noise
-            4: self.np_random.uniform(low=-0.05, high=0.05, size=(1,)),  # 5% sensor noise
-            5: self.np_random.uniform(low=-0.10, high=0.10, size=(1,)),  # 10% sensor noise
-            6: self.np_random.normal(loc=0, scale=np.sqrt(0.10), size=(1,)),  # 0.1 var sensor noise
-            7: self.np_random.normal(loc=0, scale=np.sqrt(0.20), size=(1,)),  # 0.2 var sensor noise
-        }.get(x, 1)
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -85,18 +96,20 @@ class CartPoleModEnv(gym.Env):
         force = self.force_mag if action == 1 else -self.force_mag
         costheta = math.cos(theta)
         sintheta = math.sin(theta)
-        temp = (force + self.polemass_length * theta_dot * theta_dot * sintheta - self.frictioncart * np.sign(
-            x_dot)) / self.total_mass  # AA Added cart friction
-        thetaacc = (
-                           self.gravity * sintheta - costheta * temp - self.frictionpole * theta_dot / self.polemass_length) / (
-                           self.length * (
-                           4.0 / 3.0 - self.masspole * costheta * costheta / self.total_mass))  # AA Added pole friction
+        temp = (force + self.polemass_length * theta_dot * theta_dot * sintheta) / self.total_mass
+        thetaacc = (self.gravity * sintheta - costheta * temp) / (
+                self.length * (4.0 / 3.0 - self.masspole * costheta * costheta / self.total_mass))
         xacc = temp - self.polemass_length * thetaacc * costheta / self.total_mass
-        noise = self.addnoise(self.case)
-        x = (x + self.tau * x_dot)
-        x_dot = (x_dot + self.tau * xacc)
-        theta = (theta + self.tau * theta_dot) * (1 + noise)
-        theta_dot = (theta_dot + self.tau * thetaacc)
+        if self.kinematics_integrator == 'euler':
+            x = x + self.tau * x_dot
+            x_dot = x_dot + self.tau * xacc
+            theta = theta + self.tau * theta_dot
+            theta_dot = theta_dot + self.tau * thetaacc
+        else:  # semi-implicit euler
+            x_dot = x_dot + self.tau * xacc
+            x = x + self.tau * x_dot
+            theta_dot = theta_dot + self.tau * thetaacc
+            theta = theta + self.tau * theta_dot
         self.state = (x, x_dot, theta, theta_dot)
         done = x < -self.x_threshold \
                or x > self.x_threshold \
@@ -112,10 +125,8 @@ class CartPoleModEnv(gym.Env):
             reward = 1.0
         else:
             if self.steps_beyond_done == 0:
-                logger.warning(
-                    "You are calling 'step()' even though this environment has already returned done = True."
-                    " You should always call 'reset()' once you receive 'done = True' -- "
-                    "any further steps are undefined behavior.")
+                logger.warn(
+                    "You are calling 'step()' even though this environment has already returned done = True. You should always call 'reset()' once you receive 'done = True' -- any further steps are undefined behavior.")
             self.steps_beyond_done += 1
             reward = 0.0
 
@@ -126,13 +137,7 @@ class CartPoleModEnv(gym.Env):
         self.steps_beyond_done = None
         return np.array(self.state)
 
-    def render(self, mode='human', close=False):
-        if close:
-            if self.viewer is not None:
-                self.viewer.close()
-                self.viewer = None
-            return
-
+    def render(self, mode='human'):
         screen_width = 600
         screen_height = 400
 
@@ -140,7 +145,7 @@ class CartPoleModEnv(gym.Env):
         scale = screen_width / world_width
         carty = 100  # TOP OF CART
         polewidth = 10.0
-        polelen = scale * 1.0
+        polelen = scale * (2 * self.length)
         cartwidth = 50.0
         cartheight = 30.0
 
@@ -169,16 +174,29 @@ class CartPoleModEnv(gym.Env):
             self.track.set_color(0, 0, 0)
             self.viewer.add_geom(self.track)
 
+            self._pole_geom = pole
+
         if self.state is None: return None
+
+        # Edit the pole polygon vertex
+        pole = self._pole_geom
+        l, r, t, b = -polewidth / 2, polewidth / 2, polelen - polewidth / 2, -polewidth / 2
+        pole.v = [(l, b), (l, t), (r, t), (r, b)]
 
         x = self.state
         cartx = x[0] * scale + screen_width / 2.0  # MIDDLE OF CART
         self.carttrans.set_translation(cartx, carty)
         self.poletrans.set_rotation(-x[2])
+
         return self.viewer.render(return_rgb_array=mode == 'rgb_array')
 
+    def close(self):
+        if self.viewer:
+            self.viewer.close()
+            self.viewer = None
 
-class CartPoleCustomEnv(CartPoleModEnv):
+
+class CartPoleCustomEnv(CartPoleEnv):
     def __init__(self, config, true_value):
         super().__init__()
 
@@ -222,8 +240,9 @@ class CartPoleCustomEnv(CartPoleModEnv):
         if self.nuisance_name == "length":
             self.length = self.nuisance
             self.polemass_length = self.masspole * self.length
-        elif self.nuisance_name == "friction":
-            self.frictioncart = self.nuisance
+        elif self.nuisance_name == "mass":
+            self.masscart = self.nuisance
+            self.total_mass = (self.masspole + self.masscart)
         else:
             raise ValueError("Unknown nuisance parameter")
 

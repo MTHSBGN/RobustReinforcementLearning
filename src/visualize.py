@@ -1,37 +1,48 @@
+import argparse
+import json
+
 import matplotlib
 import matplotlib.pyplot as plt
-
 import numpy as np
 
 matplotlib.rcParams['figure.dpi'] = 200
 
+parser = argparse.ArgumentParser(description='Train a RL agent.')
+parser.add_argument('directory', type=str, help="Path to a directory containing models to visualize")
+
 
 def visualize(config, directory):
-    data = np.load(directory + "/data.npz")
-    for key in data.files:
-        if "true" in key:
-            plt.figure(1)
-        else:
-            plt.figure(2)
+    bounds = tuple(config["environment"]["nuisance"]["bounds"])
+    x = list(range(10))
 
-        rewards = data[key].transpose()
+    for num_training in range(config["training"]["num_training"]):
+        plt.figure()
+        data = np.load(directory + "/model_" + str(num_training + 1).zfill(2) + "/data.npz")
 
-        # for i in range(rewards.shape[0]):
-        #     y = rewards[i, :]
-        #     plt.plot(y, color="b", alpha=0.02)
+        data_true = data["true"]
+        data_false = data["false"]
 
-        bounds = tuple(config["environment"]["nuisance"]["bounds"])
-        x = list(range(len(np.linspace(bounds[0], bounds[1], 10 * (bounds[1] - bounds[0]) + 1))))
-        plt.errorbar(x, np.mean(rewards, axis=0), np.std(rewards, axis=0), fmt='-o', label=str.title(key))
+        plt.errorbar(x, data_true[:, 0], data_true[:, 1], fmt='-o', label="True value")
+        plt.errorbar(x, data_false[:, 0], data_false[:, 1], fmt='-o', label="False value")
 
-        plt.xticks(list(range(rewards.shape[1])),
-                   [str(np.round(x, 1)) for x in np.linspace(bounds[0], bounds[1], 10 * (bounds[1] - bounds[0]) + 1)])
+        labels = [str(x) for x in np.around(np.linspace(bounds[0], bounds[1], num=10), 1)]
+        plt.xticks(list(range(len(labels))), labels)
+
+        plt.ylim(0, 220)
+
         plt.title("Nuisance: " + config["environment"]["nuisance"]["name"])
         plt.xlabel("Value of the parameters")
         plt.ylabel("Mean reward (n = 1000)")
         plt.legend(loc=4)
 
-    for fig_num in [1, 2]:
-        plt.figure(fig_num)
-        path = directory + "/plot_" + "true.png" if fig_num == 1 else directory + "/plot_" + "false.png"
-        plt.savefig(path)
+        plt.savefig(directory + "/model_" + str(num_training + 1).zfill(2) + "/rewards.png")
+
+
+if __name__ == "__main__":
+    args = parser.parse_args()
+
+    # Parses the config file
+    with open(args.directory + "/config.json") as f:
+        config_file = json.load(f)
+
+    visualize(config_file, args.directory)

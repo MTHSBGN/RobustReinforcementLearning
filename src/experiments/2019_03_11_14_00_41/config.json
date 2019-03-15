@@ -6,16 +6,16 @@
     "name": "CartPoleCustomEnv",
     "num_envs": 4,
     "nuisance": {
-      "name": "length",
+      "name": "mass",
       "bounds": [
         0.1,
-        2.0
+        5.0
       ]
     }
   },
   "training": {
     "num_timesteps": 2000000,
     "step": 5,
-    "num_training": 2
+    "num_training": 10
   }
 }

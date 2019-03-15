@@ -1,6 +1,15 @@
+import argparse
+import datetime
+import json
+import os
+import shutil
+
 import numpy as np
 
 from vec_env import SubprocVecEnv
+
+parser = argparse.ArgumentParser(description='Train a RL agent.')
+parser.add_argument('config', type=str, help="Path to a configuration file")
 
 
 def train(config, directory):
@@ -45,4 +54,23 @@ def train(config, directory):
                 print("Timestep {}/{}".format(timestep, num_timesteps))
 
         # Saves model's weight
-        agent.save(directory + "/model_" + str(num_training + 1))
+        os.makedirs(directory + "/model_" + str(num_training + 1).zfill(2))
+        agent.save(directory + "/model_" + str(num_training + 1).zfill(2) + "/model")
+        envs.close()
+
+
+if __name__ == "__main__":
+    args = parser.parse_args()
+
+    # Parses the config file
+    with open(args.config) as f:
+        config_file = json.load(f)
+
+    # Creates the result directory
+    path = "experiments/" + datetime.datetime.today().strftime("%Y_%m_%d_%H_%M_%S") + "/"
+    os.makedirs(path)
+
+    # Moves the config file in the result directory
+    shutil.copyfile(args.config, path + "config.json")
+
+    train(config_file, path)
