@@ -45,7 +45,7 @@ def train(config, directory):
                 masks.append(1 - done)
 
                 state = next_state
-                timestep += 1
+                timestep += config["environment"]["num_envs"]
 
             last_observation = state
             agent.step(np.vstack(observations), np.concatenate(actions), rewards, masks, last_observation)

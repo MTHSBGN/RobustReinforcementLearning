@@ -1,0 +1,21 @@
+{
+  "agent": {
+    "name": "ActorCriticAgent"
+  },
+  "environment": {
+    "name": "CartPoleCustomEnv",
+    "num_envs": 4,
+    "nuisance": {
+      "name": "length",
+      "bounds": [
+        0.1,
+        10.0
+      ]
+    }
+  },
+  "training": {
+    "num_timesteps": 2000000,
+    "step": 5,
+    "num_training": 20
+  }
+}

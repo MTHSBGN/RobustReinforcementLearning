@@ -5,6 +5,10 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
+from utils import plot_rewards, plot_ratio_actions
+
+plt.style.use('ggplot')
+
 matplotlib.rcParams['figure.dpi'] = 200
 
 parser = argparse.ArgumentParser(description='Train a RL agent.')
@@ -13,29 +17,51 @@ parser.add_argument('directory', type=str, help="Path to a directory containing 
 
 def visualize(config, directory):
     bounds = tuple(config["environment"]["nuisance"]["bounds"])
-    x = list(range(10))
+    labels = [str(x) for x in np.around(np.linspace(bounds[0], bounds[1], num=10), 1)]
+    rewards_true, rewards_false, var_true, var_false, actions_true, actions_false = [], [], [], [], [], []
 
     for num_training in range(config["training"]["num_training"]):
-        plt.figure()
         data = np.load(directory + "/model_" + str(num_training + 1).zfill(2) + "/data.npz")
 
         data_true = data["true"]
         data_false = data["false"]
 
-        plt.errorbar(x, data_true[:, 0], data_true[:, 1], fmt='-o', label="True value")
-        plt.errorbar(x, data_false[:, 0], data_false[:, 1], fmt='-o', label="False value")
+        rewards_true.append(data_true[:, 0])
+        rewards_false.append(data_false[:, 0])
+        var_true.append(data_true[:, 1])
+        var_false.append(data_false[:, 1])
+        actions_true.append(data_true[:, 2:4])
+        actions_false.append(data_false[:, 2:4])
 
-        labels = [str(x) for x in np.around(np.linspace(bounds[0], bounds[1], num=10), 1)]
-        plt.xticks(list(range(len(labels))), labels)
+        plot_rewards(
+            [data_true[:, 0], data_false[:, 0]],
+            [data_true[:, 1], data_false[:, 1]],
+            directory + "/model_" + str(num_training + 1).zfill(2) + "/rewards.png",
+            labels,
+            "Nuisance: " + config["environment"]["nuisance"]["name"]
+        )
 
-        plt.ylim(0, 220)
+        plot_ratio_actions(
+            [data_true[:, 2:4], data_false[:, 2:4]],
+            directory + "/model_" + str(num_training + 1).zfill(2) + "/actions.png",
+            labels,
+            "Nuisance: " + config["environment"]["nuisance"]["name"]
+        )
 
-        plt.title("Nuisance: " + config["environment"]["nuisance"]["name"])
-        plt.xlabel("Value of the parameters")
-        plt.ylabel("Mean reward (n = 1000)")
-        plt.legend(loc=4)
+    plot_rewards(
+        [np.mean(np.vstack(rewards_true), axis=0), np.mean(np.vstack(rewards_false), axis=0)],
+        [np.mean(np.vstack(var_true), axis=0), np.mean(np.vstack(var_false), axis=0)],
+        directory + "/rewards.png",
+        labels,
+        "Nuisance: " + config["environment"]["nuisance"]["name"]
+    )
 
-        plt.savefig(directory + "/model_" + str(num_training + 1).zfill(2) + "/rewards.png")
+    plot_ratio_actions(
+        [np.mean(np.stack(actions_true), axis=0), np.mean(np.stack(actions_false), axis=0)],
+        directory + "/actions.png",
+        labels,
+        "Nuisance: " + config["environment"]["nuisance"]["name"]
+    )
 
 
 if __name__ == "__main__":
