@@ -1,5 +1,4 @@
-gym
+gym[box2d]
 numpy
 torch
-matplotlib
--e git://github.com/AadityaPatanjali/gym-cartpolemod.git#egg=cartpolemod
+visdom

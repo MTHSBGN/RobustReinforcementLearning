@@ -1,9 +1,10 @@
 from itertools import zip_longest
 
+import gym
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.distributions import Categorical
+from torch.distributions import Categorical, MultivariateNormal
 from torch.optim import Adam, RMSprop
 
 from agents.agent import Agent
@@ -17,28 +18,39 @@ class PPOAgent(Agent, nn.Module):
         self.num_epochs = num_epochs
         self.minibatch_size = minibatch_size
         self.epsilon = epsilon
-
-        in_dim = obs_space.shape[0]
+        self.discrete = type(act_space) is gym.spaces.Discrete
 
         self.value = nn.Sequential(
-            nn.Linear(in_dim, 256),
+            nn.Linear(obs_space.shape[0], 256),
             nn.ReLU(),
             nn.Linear(256, 1)
         )
-
-        self.logits = nn.Sequential(
-            nn.Linear(in_dim, 256),
-            nn.ReLU(),
-            nn.Linear(256, 2)
-        )
+        if self.discrete:
+            self.logits = nn.Sequential(
+                nn.Linear(obs_space.shape[0], 256),
+                nn.ReLU(),
+                nn.Linear(256, 2)
+            )
+        else:
+            self.means = nn.Sequential(
+                nn.Linear(obs_space.shape[0], 256),
+                nn.ReLU(),
+                nn.Linear(256, self.act_space.shape[0])
+            )
 
         self.optimizer = Adam(self.parameters(), lr=0.0003)
 
     def forward(self, x):
         x = torch.tensor(x, dtype=torch.float32)
-        logits = self.logits(x)
+
+        if self.discrete:
+            logits = self.logits(x)
+            dist = Categorical(logits=logits)
+        else:
+            means = self.means(x)
+            dist = MultivariateNormal(means, torch.eye(self.act_space.shape[0]))
+
         value = self.value(x)
-        dist = Categorical(logits=logits)
         return dist.sample().numpy(), value.detach().numpy().reshape(1, -1)
 
     def get_actions(self, observations, extra_returns=None):
@@ -52,14 +64,22 @@ class PPOAgent(Agent, nn.Module):
         obs, act, ret, adv = buffer.get()
 
         # Flattens the input data
-        obs = torch.tensor(obs.reshape(obs.shape[0] * obs.shape[1], -1), dtype=torch.float)
-        act = torch.tensor(act.reshape(-1))
-        ret = torch.tensor(ret.reshape(-1), dtype=torch.float)
-        adv = torch.tensor(adv.reshape(-1), dtype=torch.float)
+        obs = torch.tensor(obs.reshape(obs.shape[0] * obs.shape[1], -1), dtype=torch.float32)
+        if self.discrete:
+            act = torch.tensor(act.reshape(-1))
+        else:
+            act = torch.tensor(act.reshape(act.shape[0] * act.shape[1], -1), dtype=torch.float32)
+        ret = torch.tensor(ret.reshape(-1), dtype=torch.float32)
+        adv = torch.tensor(adv.reshape(-1), dtype=torch.float32)
 
         # Computes pi_theta_old
-        logits = self.logits(obs)
-        pi_old = Categorical(logits=logits).log_prob(act).exp().detach()
+        if self.discrete:
+            logits = self.logits(obs)
+            dist = Categorical(logits=logits)
+        else:
+            means = self.means(obs)
+            dist = MultivariateNormal(means, torch.eye(self.act_space.shape[0]))
+        pi_old = dist.log_prob(act).exp().detach()
 
         # Iterates over the whole dataset num_epochs times
         for _ in range(self.num_epochs):
@@ -71,9 +91,14 @@ class PPOAgent(Agent, nn.Module):
                 batch_idx = list(batch_idx)  # Converts batch_idx from a tuple to a list
 
                 # Computes r_t
-                logits = self.logits(obs[batch_idx])
-                new_pi = Categorical(logits=logits).log_prob(act[batch_idx]).exp()
-                ratio = new_pi / pi_old[batch_idx]
+                if self.discrete:
+                    logits = self.logits(obs[batch_idx])
+                    dist = Categorical(logits=logits)
+                else:
+                    means = self.means(obs[batch_idx])
+                    dist = MultivariateNormal(means, torch.eye(self.act_space.shape[0]))
+                pi_new = dist.log_prob(act[batch_idx]).exp()
+                ratio = pi_new / pi_old[batch_idx]
 
                 # Computes L_CLIP
                 pi_loss = torch.min(
