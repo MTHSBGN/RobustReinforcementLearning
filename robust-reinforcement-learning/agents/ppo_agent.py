@@ -60,6 +60,12 @@ class PPOAgent(Agent, nn.Module):
 
         return action
 
+    def save(self):
+        torch.save(self.state_dict(), "model.pt")
+
+    def load(self):
+        self.load_state_dict(torch.load("model.pt"))
+
     def update(self, buffer):
         obs, act, ret, adv = buffer.get()
 

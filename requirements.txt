@@ -1,4 +1,4 @@
 gym[box2d]
 numpy
-torch
+pytorch
 visdom

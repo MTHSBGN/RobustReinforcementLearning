@@ -4,6 +4,7 @@ import scipy.signal
 
 from agents.agent import Agent
 from vec_env import SubprocVecEnv
+from collections import deque
 
 
 class Buffer:
@@ -23,6 +24,9 @@ class Buffer:
         self.ret_buf = np.zeros(size)
         self.adv_buf = np.zeros(size)
 
+        self.cum_rew = np.zeros(num_envs)
+        self.rewards = deque(maxlen=100)
+
         self.last_obs = self.envs.reset()
 
     def __len__(self):
@@ -40,10 +44,13 @@ class Buffer:
             self.act_buf[:, idx] = actions
             self.rew_buf[:, idx] = rewards
             self.val_buf[:, idx] = values
+            self.cum_rew[:] += rewards
 
             obs = next_obs
 
             for i in np.argwhere(dones).reshape(-1):
+                self.rewards.append(self.cum_rew[i])
+                self.cum_rew[i] = 0
                 self.finish_path(i, start_idx[i], idx + 1)
                 start_idx[i] = idx + 1
 
@@ -54,7 +61,6 @@ class Buffer:
 
     def finish_path(self, idx, start, end, last_val=0):
         s = slice(start, end)
-
         rews = np.append(self.rew_buf[idx, s], last_val)
         vals = np.append(self.val_buf[idx, s], last_val)
         deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
