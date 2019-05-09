@@ -2,8 +2,8 @@ import gym
 import numpy as np
 import scipy.signal
 
-from agents.agent import Agent
-from vec_env import SubprocVecEnv
+from robust_reinforcement_learning.agents.agent import Agent
+from robust_reinforcement_learning.vec_env import SubprocVecEnv
 from collections import deque
 
 

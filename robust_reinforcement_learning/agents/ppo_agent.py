@@ -5,9 +5,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.distributions import Categorical, MultivariateNormal
-from torch.optim import Adam, RMSprop
+from torch.optim import Adam
 
-from agents.agent import Agent
+import gc
+
+from robust_reinforcement_learning.agents.agent import Agent
 
 
 class PPOAgent(Agent, nn.Module):
@@ -51,10 +53,12 @@ class PPOAgent(Agent, nn.Module):
             dist = MultivariateNormal(means, torch.eye(self.act_space.shape[0]))
 
         value = self.value(x)
-        return dist.sample().numpy(), value.detach().numpy().reshape(1, -1)
+        return dist, value
 
     def get_actions(self, observations, extra_returns=None):
-        action, value = self(observations)
+        dist, value = self(observations)
+        value = value.detach().numpy().reshape(-1)
+        action = dist.sample().numpy()
         if extra_returns and "value" in extra_returns:
             return action, value
 
@@ -70,22 +74,17 @@ class PPOAgent(Agent, nn.Module):
         obs, act, ret, adv = buffer.get()
 
         # Flattens the input data
-        obs = torch.tensor(obs.reshape(obs.shape[0] * obs.shape[1], -1), dtype=torch.float32)
+        obs = obs.reshape(obs.shape[0] * obs.shape[1], -1)
         if self.discrete:
-            act = torch.tensor(act.reshape(-1))
+            act = act.reshape(-1)
         else:
-            act = torch.tensor(act.reshape(act.shape[0] * act.shape[1], -1), dtype=torch.float32)
-        ret = torch.tensor(ret.reshape(-1), dtype=torch.float32)
-        adv = torch.tensor(adv.reshape(-1), dtype=torch.float32)
+            act = act.reshape(act.shape[0] * act.shape[1], -1)
+        ret = ret.reshape(-1)
+        adv = adv.reshape(-1)
 
         # Computes pi_theta_old
-        if self.discrete:
-            logits = self.logits(obs)
-            dist = Categorical(logits=logits)
-        else:
-            means = self.means(obs)
-            dist = MultivariateNormal(means, torch.eye(self.act_space.shape[0]))
-        pi_old = dist.log_prob(act).exp().detach()
+        dist, values = self(obs)
+        pi_old = dist.log_prob(torch.tensor(act, dtype=torch.float)).exp().detach().numpy()
 
         # Iterates over the whole dataset num_epochs times
         for _ in range(self.num_epochs):
@@ -97,24 +96,18 @@ class PPOAgent(Agent, nn.Module):
                 batch_idx = list(batch_idx)  # Converts batch_idx from a tuple to a list
 
                 # Computes r_t
-                if self.discrete:
-                    logits = self.logits(obs[batch_idx])
-                    dist = Categorical(logits=logits)
-                else:
-                    means = self.means(obs[batch_idx])
-                    dist = MultivariateNormal(means, torch.eye(self.act_space.shape[0]))
-                pi_new = dist.log_prob(act[batch_idx]).exp()
-                ratio = pi_new / pi_old[batch_idx]
+                dist, values = self(obs[batch_idx])
+                pi_new = dist.log_prob(torch.tensor(act[batch_idx], dtype=torch.float)).exp()
+                ratio = pi_new / torch.tensor(pi_old[batch_idx])
 
                 # Computes L_CLIP
                 pi_loss = torch.min(
-                    ratio * adv[batch_idx],
-                    torch.clamp(ratio, 1 - self.epsilon, 1 + self.epsilon) * adv[batch_idx]
+                    ratio * torch.tensor(adv[batch_idx], dtype=torch.float),
+                    torch.clamp(ratio, 1 - self.epsilon, 1 + self.epsilon) * torch.tensor(adv[batch_idx], dtype=torch.float)
                 ).mean()
 
                 # Computes L_VF
-                values = self.value(obs[batch_idx]).reshape(-1)
-                value_loss = nn.functional.smooth_l1_loss(values, ret[batch_idx])
+                value_loss = nn.functional.smooth_l1_loss(values.view(-1), torch.tensor(ret[batch_idx], dtype=torch.float))
 
                 # Negative pi_loss to perform gradient ascent
                 loss = -pi_loss + value_loss

@@ -1,4 +1,5 @@
+cloudpickle
 gym[box2d]
 numpy
-pytorch
+torch
 visdom
