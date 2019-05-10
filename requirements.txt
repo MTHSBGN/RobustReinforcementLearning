@@ -1,5 +1,0 @@
-cloudpickle
-gym[box2d]
-numpy
-torch
-visdom
