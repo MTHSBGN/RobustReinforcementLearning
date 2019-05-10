@@ -1,8 +1,6 @@
 import gym
-import numpy as np
 
-from agents.ppo_agent import PPOAgent
-from vec_env import SubprocVecEnv
+from robust_reinforcement_learning.agents.ppo_agent import PPOAgent
 
 
 if __name__ == "__main__":

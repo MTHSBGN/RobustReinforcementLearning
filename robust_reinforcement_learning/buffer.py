@@ -2,13 +2,12 @@ import gym
 import numpy as np
 import scipy.signal
 
-from robust_reinforcement_learning.agents.agent import Agent
 from robust_reinforcement_learning.vec_env import SubprocVecEnv
 from collections import deque
 
 
 class Buffer:
-    def __init__(self, agent: Agent, env_name, num_envs, obs_space, act_space, num_step=64, gamma=0.99, lam=0.95):
+    def __init__(self, agent, env_name, num_envs, obs_space, act_space, num_step=64, gamma=0.99, lam=0.95):
         self.agent = agent
         self.envs = SubprocVecEnv([lambda: gym.make(env_name) for _ in range(num_envs)])
         self.num_envs = num_envs
@@ -37,7 +36,7 @@ class Buffer:
         obs = self.last_obs
 
         for idx in range(self.num_step):
-            actions, values = self.agent.get_actions(obs, extra_returns=["value"])
+            _, actions, values = self.agent(obs, None)
             next_obs, rewards, dones, _ = self.envs.step(actions)
 
             self.obs_buf[:, idx] = obs

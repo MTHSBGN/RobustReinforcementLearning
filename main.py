@@ -9,7 +9,7 @@ if __name__ == "__main__":
     env_name = "BipedalWalker-v2"
     env = gym.make(env_name)
     agent = PPOAgent(env.observation_space, env.action_space)
-    buffer = Buffer(agent, env_name, num_envs, env.observation_space, env.action_space, num_step=256)
+    buffer = Buffer(agent, env_name, num_envs, env.observation_space, env.action_space, num_step=2048)
 
     timestep = 0
     max_timestep = 10000000
@@ -22,11 +22,6 @@ if __name__ == "__main__":
         num_update += 1
         timestep += len(buffer) * num_envs
 
-        if num_update % 4 == 0:
-            mean_reward = np.mean(buffer.rewards)
-            agent.save()
-            print("{}/{}: {}".format(timestep, max_timestep, mean_reward))
-
-    mean_reward = np.mean(buffer.rewards)
-    agent.save()
-    print("{}/{}: {}".format(timestep, max_timestep, mean_reward))
+        mean_reward = np.mean(buffer.rewards)
+        agent.save()
+        print("{}/{}: {}".format(timestep, max_timestep, mean_reward))
