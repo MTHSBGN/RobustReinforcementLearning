@@ -17,30 +17,31 @@ class Actor(nn.Module):
         self.discrete = type(act_space) is gym.spaces.Discrete
 
         self.fc1 = nn.Linear(obs_space.shape[0], 64)
+        self.fc2 = nn.Linear(64, 64)
         if self.discrete:
             self.logits = nn.Linear(64, act_space.n)
         else:
             self.means = nn.Linear(64, act_space.shape[0])
             self.eye = torch.eye(act_space.shape[0])
 
-    def forward(self, obs, act):
-        obs = torch.tensor(obs, dtype=torch.float)
+    def forward(self, x, a):
+        x = torch.tensor(x, dtype=torch.float)
 
-        out = self.fc1(obs)
-        out = functional.relu(out)
+        x = functional.relu(self.fc1(x))
+        x = functional.relu(self.fc2(x))
 
         if self.discrete:
-            logits = self.logits(out)
+            logits = self.logits(x)
             dist = Categorical(logits=logits)
         else:
-            means = self.means(out)
+            means = self.means(x)
             dist = MultivariateNormal(means, self.eye)
 
-        if act is None:
-            act = dist.sample().detach().numpy()
+        if a is None:
+            a = dist.sample().detach().numpy()
 
-        log_prob = dist.log_prob(torch.tensor(act, dtype=torch.float))
-        return log_prob, act
+        log_prob = dist.log_prob(torch.tensor(a, dtype=torch.float))
+        return log_prob, a
 
     def loss(self, pi_old, obs, act, adv):
         pi_old = torch.tensor(pi_old, dtype=torch.float)
@@ -62,16 +63,17 @@ class Critic(nn.Module):
         super().__init__()
 
         self.fc1 = nn.Linear(obs_space.shape[0], 64)
-        self.value = nn.Linear(64, 1)
+        self.fc2 = nn.Linear(64, 64)
+        self.fc3 = nn.Linear(64, 1)
 
-    def forward(self, obs):
-        obs = torch.tensor(obs, dtype=torch.float)
+    def forward(self, x):
+        x = torch.tensor(x, dtype=torch.float)
 
-        value = self.fc1(obs)
-        value = functional.relu(value)
-        value = self.value(value)
+        x = functional.relu(self.fc1(x))
+        x = functional.relu(self.fc2(x))
+        x = self.fc3(x)
 
-        return value
+        return x
 
     def loss(self, obs, returns):
         returns = torch.tensor(returns, dtype=torch.float)
@@ -80,11 +82,12 @@ class Critic(nn.Module):
 
 
 class PPOAgent(nn.Module):
-    def __init__(self, obs_space, act_space, num_epochs=10, minibatch_size=64, epsilon=0.2):
+    def __init__(self, obs_space, act_space, logger, num_epochs=10, minibatch_size=64, epsilon=0.2):
         nn.Module.__init__(self)
 
         self.obs_space = obs_space
         self.act_space = act_space
+        self.logger = logger
 
         self.num_epochs = num_epochs
         self.minibatch_size = minibatch_size
@@ -93,7 +96,8 @@ class PPOAgent(nn.Module):
 
         self.actor = Actor(obs_space, act_space)
         self.critic = Critic(obs_space)
-        self.optimizer = Adam(self.parameters(), lr=0.0003)
+        self.actor_optimizer = Adam(self.actor.parameters())
+        self.critic_optimizer = Adam(self.critic.parameters())
 
     def forward(self, obs, act):
         log_prob, act = self.actor(obs, act)
@@ -115,6 +119,10 @@ class PPOAgent(nn.Module):
         ret = ret.reshape(-1)
         adv = adv.reshape(-1)
 
+        # Used for visualizations
+        actor_loss_buf = []
+        critic_loss_buf = []
+
         # Computes pi_theta_old
         log_prob, _, _ = self(obs, act)
         pi_old = log_prob.exp().detach().numpy()
@@ -128,10 +136,17 @@ class PPOAgent(nn.Module):
             for batch_idx in zip_longest(*[iter(idx)] * self.minibatch_size):
                 batch_idx = list(batch_idx)  # Converts batch_idx from a tuple to a list
 
-                pi_loss = self.actor.loss(pi_old[batch_idx], obs[batch_idx], act[batch_idx], adv[batch_idx])
-                value_loss = self.critic.loss(obs[batch_idx], ret[batch_idx])
-                loss = pi_loss + value_loss
+                critic_loss = self.critic.loss(obs[batch_idx], ret[batch_idx])
+                self.critic_optimizer.zero_grad()
+                critic_loss.backward()
+                self.critic_optimizer.step()
+                critic_loss_buf.append(critic_loss.detach().numpy().item())
 
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
+                actor_loss = self.actor.loss(pi_old[batch_idx], obs[batch_idx], act[batch_idx], adv[batch_idx])
+                self.actor_optimizer.zero_grad()
+                actor_loss.backward()
+                self.actor_optimizer.step()
+                actor_loss_buf.append(actor_loss.detach().numpy().item())
+
+        self.logger.update(actor_loss=np.mean(actor_loss_buf),
+                           critic_loss=np.mean(critic_loss_buf))

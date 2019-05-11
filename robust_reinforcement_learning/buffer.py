@@ -7,9 +7,10 @@ from collections import deque
 
 
 class Buffer:
-    def __init__(self, agent, env_name, num_envs, obs_space, act_space, num_step=64, gamma=0.99, lam=0.95):
+    def __init__(self, agent, env_name, num_envs, obs_space, act_space, logger, num_step=64, gamma=0.99, lam=0.95):
         self.agent = agent
         self.envs = SubprocVecEnv([lambda: gym.make(env_name) for _ in range(num_envs)])
+        self.logger = logger
         self.num_envs = num_envs
         self.num_step = num_step
         self.gamma = gamma
@@ -38,6 +39,9 @@ class Buffer:
         for idx in range(self.num_step):
             _, actions, values = self.agent(obs, None)
             next_obs, rewards, dones, _ = self.envs.step(actions)
+
+            # for i in np.where(self.cum_rew == 0):
+            #     self.logger.update_value_buffer(values[i])
 
             self.obs_buf[:, idx] = obs
             self.act_buf[:, idx] = actions
