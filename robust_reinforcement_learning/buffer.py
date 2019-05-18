@@ -3,45 +3,36 @@ import numpy as np
 import scipy.signal
 
 from robust_reinforcement_learning.vec_env import SubprocVecEnv
-from collections import deque
 
 
 class Buffer:
-    def __init__(self, agent, env_name, num_envs, obs_space, act_space, logger, num_step=64, gamma=0.99, lam=0.95):
+    def __init__(self, agent, env, config):
         self.agent = agent
-        self.envs = SubprocVecEnv([lambda: gym.make(env_name) for _ in range(num_envs)])
-        self.logger = logger
-        self.num_envs = num_envs
-        self.num_step = num_step
-        self.gamma = gamma
-        self.lam = lam
+        self.envs = SubprocVecEnv([lambda: gym.make(config["env_name"]) for _ in range(config["num_envs"])])
+        self.num_step = config["num_steps"]
+        self.gamma = config["gamma"]
+        self.lam = config["lambda"]
 
-        size = (num_envs, num_step)
-        self.obs_buf = np.zeros(size + obs_space.shape)
-        self.act_buf = np.zeros(size + act_space.shape) if hasattr(act_space, 'shape') else np.zeros(size)
+        size = (self.envs.nenvs, self.num_step)
+        self.obs_buf = np.zeros(size + env.observation_space.shape)
+        self.act_buf = np.zeros(size + env.action_space.shape)
         self.rew_buf = np.zeros(size)
         self.val_buf = np.zeros(size)
         self.ret_buf = np.zeros(size)
         self.adv_buf = np.zeros(size)
 
-        self.cum_rew = np.zeros(num_envs)
-        self.rewards = deque(maxlen=100)
+        self.cum_rew = np.zeros(self.envs.nenvs)
 
         self.last_obs = self.envs.reset()
 
-    def __len__(self):
-        return self.num_step
-
     def collect(self):
-        start_idx = np.zeros(self.num_envs, dtype=np.int)
+        tot_rewards = []
+        start_idx = np.zeros(self.envs.nenvs, dtype=np.int)
         obs = self.last_obs
 
         for idx in range(self.num_step):
-            _, actions, values = self.agent(obs, None)
+            actions, values = self.agent.select_action(obs)
             next_obs, rewards, dones, _ = self.envs.step(actions)
-
-            # for i in np.where(self.cum_rew == 0):
-            #     self.logger.update_value_buffer(values[i])
 
             self.obs_buf[:, idx] = obs
             self.act_buf[:, idx] = actions
@@ -52,15 +43,24 @@ class Buffer:
             obs = next_obs
 
             for i in np.argwhere(dones).reshape(-1):
-                self.rewards.append(self.cum_rew[i])
+                tot_rewards.append(self.cum_rew[i])
                 self.cum_rew[i] = 0
                 self.finish_path(i, start_idx[i], idx + 1)
                 start_idx[i] = idx + 1
 
         self.last_obs = obs
 
-        for i in range(self.num_envs):
+        for i in range(self.envs.nenvs):
             self.finish_path(i, start_idx[i], self.num_step, self.val_buf[i, -1])
+
+        return {
+            "episodes": len(tot_rewards),
+            "timesteps": self.envs.nenvs * self.num_step,
+            "min_reward": np.min(tot_rewards),
+            "mean_reward": np.mean(tot_rewards),
+            "max_reward": np.max(tot_rewards),
+            "std_reward": np.std(tot_rewards)
+        }
 
     def finish_path(self, idx, start, end, last_val=0):
         s = slice(start, end)
@@ -73,6 +73,9 @@ class Buffer:
 
     def get(self):
         return self.obs_buf, self.act_buf, self.ret_buf, self.adv_buf
+
+    def get_trajectories(self):
+        pass
 
 
 def discount_cumsum(x, discount):

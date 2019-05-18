@@ -1,31 +1,40 @@
 import gym
-import numpy as np
 
-from robust_reinforcement_learning.agents.ppo_agent import PPOAgent
+from robust_reinforcement_learning.agent import Agent
 from robust_reinforcement_learning.buffer import Buffer
 from robust_reinforcement_learning.logger import Logger
-from robust_reinforcement_learning.evaluate import evaluate
+
+from robust_reinforcement_learning.models import PPO
+import robust_reinforcement_learning.environments
+
+config = {
+    "env_name": "CustomBipedalWalker-v0",
+    "num_envs": 8,
+    "num_steps": 2048,
+    "max_timesteps": 3_000_000,
+    "gamma": 0.99,
+    "lambda": 0.95,
+    "num_epochs": 10,
+    "minibatch_size": 64,
+    "epsilon": 0.2
+}
 
 if __name__ == "__main__":
-    num_envs = 8
-    env_name = "BipedalWalker-v2"
+    num_envs = config["num_envs"]
+    env_name = config["env_name"]
     env = gym.make(env_name)
+
     logger = Logger()
-    agent = PPOAgent(env.observation_space, env.action_space, logger)
-    buffer = Buffer(agent, env_name, num_envs, env.observation_space, env.action_space, logger, num_step=1024)
+    agent = Agent(env, PPO(env, config))
+    buffer = Buffer(agent, env, config)
 
     timestep = 0
-    max_timestep = 10000000
-    num_update = 0
-    mean_reward = 0
+    while timestep < config["max_timesteps"]:
+        metrics = buffer.collect()
+        logger.update(metrics)
+        timestep += metrics["timesteps"]
 
-    while mean_reward < env.spec.reward_threshold and timestep < max_timestep:
-        buffer.collect()
-        agent.update(buffer)
-        num_update += 1
-        timestep += len(buffer) * num_envs
+        metrics = agent.train(buffer)
+        logger.update(metrics)
 
-        mean_reward = np.mean(buffer.rewards)
-        logger.update(mean_reward=mean_reward)
-        logger.plot(timestep)
-        print("{}/{}: {}".format(timestep, max_timestep, mean_reward))
+        logger.plot()
