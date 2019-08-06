@@ -105,7 +105,7 @@ class ContactDetector(contactListener):
                 leg.ground_contact = False
 
 
-class BipedalWalker(gym.Env, EzPickle):
+class CustomBipedalWalker(gym.Env, EzPickle):
     metadata = {
         'render.modes': ['human', 'rgb_array'],
         'video.frames_per_second': FPS
@@ -113,7 +113,7 @@ class BipedalWalker(gym.Env, EzPickle):
 
     hardcore = False
 
-    def __init__(self):
+    def __init__(self, env_config):
         EzPickle.__init__(self)
         self.seed()
         self.viewer = None
@@ -124,28 +124,21 @@ class BipedalWalker(gym.Env, EzPickle):
 
         self.prev_shaping = None
 
-        self.friction = np.random.uniform(0.1, 2.5)
-        self.fd_polygon = fixtureDef(
-            shape=polygonShape(vertices=
-                               [(0, 0),
-                                (1, 0),
-                                (1, -1),
-                                (0, -1)]),
-            friction=self.friction)
-
-        self.fd_edge = fixtureDef(
-            shape=edgeShape(vertices=
-                            [(0, 0),
-                             (1, 1)]),
-            friction=self.friction,
-            categoryBits=0x0001,
-        )
+        self.env_config = env_config
+        self.low_friction = env_config["nuisance"]["low"]
+        self.high_friction = env_config["nuisance"]["high"]
+        self.friction = env_config["nuisance"].get("value", None)
 
         self.reset()
 
         high = np.array([np.inf] * 24)
+        self.observation_space = spaces.Box(
+            np.append([self.low_friction], -high),
+            np.append([self.high_friction], high),
+            dtype=np.float32
+        )
+
         self.action_space = spaces.Box(np.array([-1, -1, -1, -1]), np.array([1, 1, 1, 1]), dtype=np.float32)
-        self.observation_space = spaces.Box(-np.append([0.1], high), np.append([2.5], high), dtype=np.float32)
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -293,25 +286,27 @@ class BipedalWalker(gym.Env, EzPickle):
             self.cloud_poly.append((poly, x1, x2))
 
     def reset(self):
-        self._destroy()
+        self.friction = self.env_config["nuisance"].get("value", None)
+        if not self.friction:
+            self.friction = self.np_random.uniform(self.low_friction, self.high_friction)
 
-        self.friction = np.random.uniform(0.1, 2.5)
         self.fd_polygon = fixtureDef(
             shape=polygonShape(vertices=
                                [(0, 0),
                                 (1, 0),
                                 (1, -1),
                                 (0, -1)]),
-            friction=FRICTION)
+            friction=self.friction)
 
         self.fd_edge = fixtureDef(
             shape=edgeShape(vertices=
                             [(0, 0),
                              (1, 1)]),
-            friction=FRICTION,
+            friction=self.friction,
             categoryBits=0x0001,
         )
 
+        self._destroy()
         self.world.contactListener_bug_workaround = ContactDetector(self)
         self.world.contactListener = self.world.contactListener_bug_workaround
         self.game_over = False
@@ -469,7 +464,7 @@ class BipedalWalker(gym.Env, EzPickle):
             done = True
         if pos[0] > (TERRAIN_LENGTH - TERRAIN_GRASS) * TERRAIN_STEP:
             done = True
-        return np.append([self.friction], np.array(state)), reward, done, {}
+        return np.append([self.friction], state), reward, done, {}
 
     def render(self, mode='human'):
         from gym.envs.classic_control import rendering
@@ -527,17 +522,18 @@ class BipedalWalker(gym.Env, EzPickle):
             self.viewer = None
 
 
-class BipedalWalkerHardcore(BipedalWalker):
+class CustomBipedalWalkerHardcore(CustomBipedalWalker):
     hardcore = True
-
-
-class CustomBipedalWalker(BipedalWalker):
-    pass
 
 
 if __name__ == "__main__":
     # Heurisic: suboptimal, have no notion of balance.
-    env = BipedalWalker()
+    env = CustomBipedalWalker({
+        "nuisance": {
+            "low": 0.1,
+            "high": 2.5
+        }
+    })
     env.reset()
     steps = 0
     total_reward = 0
@@ -552,12 +548,12 @@ if __name__ == "__main__":
     while True:
         s, r, done, info = env.step(a)
         total_reward += r
-        # if steps % 20 == 0 or done:
-        #     print("\naction " + str(["{:+0.2f}".format(x) for x in a]))
-        #     print("step {} total_reward {:+0.2f}".format(steps, total_reward))
-        #     print("hull " + str(["{:+0.2f}".format(x) for x in s[0:4]]))
-        #     print("leg0 " + str(["{:+0.2f}".format(x) for x in s[4:9]]))
-        #     print("leg1 " + str(["{:+0.2f}".format(x) for x in s[9:14]]))
+        if steps % 20 == 0 or done:
+            print("\naction " + str(["{:+0.2f}".format(x) for x in a]))
+            print("step {} total_reward {:+0.2f}".format(steps, total_reward))
+            print("hull " + str(["{:+0.2f}".format(x) for x in s[0:4]]))
+            print("leg0 " + str(["{:+0.2f}".format(x) for x in s[4:9]]))
+            print("leg1 " + str(["{:+0.2f}".format(x) for x in s[9:14]]))
         steps += 1
 
         contact0 = s[8]

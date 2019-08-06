@@ -1,27 +1,28 @@
-import gym
 import numpy as np
 import scipy.signal
 
 from robust_reinforcement_learning.vec_env import SubprocVecEnv
+from robust_reinforcement_learning.environments import env_creator
 
 
 class Buffer:
-    def __init__(self, agent, env, config):
+    def __init__(self, agent, config):
         self.agent = agent
-        self.envs = SubprocVecEnv([lambda: gym.make(config["env_name"]) for _ in range(config["num_envs"])])
+        self.envs = SubprocVecEnv([lambda: env_creator(config["env_config"]) for _ in range(config["num_envs"])])
         self.num_step = config["num_steps"]
         self.gamma = config["gamma"]
         self.lam = config["lambda"]
 
         size = (self.envs.nenvs, self.num_step)
-        self.obs_buf = np.zeros(size + env.observation_space.shape)
-        self.act_buf = np.zeros(size + env.action_space.shape)
+        self.obs_buf = np.zeros(size + self.envs.observation_space.shape)
+        self.act_buf = np.zeros(size + self.envs.action_space.shape)
         self.rew_buf = np.zeros(size)
         self.val_buf = np.zeros(size)
         self.ret_buf = np.zeros(size)
         self.adv_buf = np.zeros(size)
 
         self.cum_rew = np.zeros(self.envs.nenvs)
+        self.ep_start = [[0] for _ in range(self.envs.nenvs)]
 
         self.last_obs = self.envs.reset()
 
@@ -29,6 +30,7 @@ class Buffer:
         tot_rewards = []
         start_idx = np.zeros(self.envs.nenvs, dtype=np.int)
         obs = self.last_obs
+        self.ep_start = [[0] for _ in range(self.envs.nenvs)]
 
         for idx in range(self.num_step):
             actions, values = self.agent.select_action(obs)
@@ -47,6 +49,7 @@ class Buffer:
                 self.cum_rew[i] = 0
                 self.finish_path(i, start_idx[i], idx + 1)
                 start_idx[i] = idx + 1
+                self.ep_start[i].append(idx + 1)
 
         self.last_obs = obs
 
@@ -75,7 +78,25 @@ class Buffer:
         return self.obs_buf, self.act_buf, self.ret_buf, self.adv_buf
 
     def get_trajectories(self):
-        pass
+        episodes = []
+        for i in range(self.envs.nenvs):
+            data = {
+                "observations": self.obs_buf[i, :],
+                "actions": self.act_buf[i, :],
+                "length": len(self.obs_buf[i, :])
+            }
+
+            if len(self.ep_start[i]) == 1:
+                episodes.append(data)
+            else:
+                for start, end in zip(self.ep_start[i], self.ep_start[i][1:] + [self.num_step]):
+                    episodes.append({
+                        "observations": data["observations"][start:end],
+                        "actions": data["actions"][start:end],
+                        "length": len(data["observations"][start:end])
+                    })
+
+        return episodes
 
 
 def discount_cumsum(x, discount):

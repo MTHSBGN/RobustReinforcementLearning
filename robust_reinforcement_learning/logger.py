@@ -1,16 +1,32 @@
 import datetime
+import json
+import logging
+from pathlib import Path
+import webbrowser
+
 import numpy as np
 import visdom
-import webbrowser
+
+logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO)
+
+
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, np.float32):
+            return float(obj)
+        return json.JSONEncoder.default(self, obj)
 
 
 class Logger:
-    def __init__(self):
+    def __init__(self, logdir: Path):
         self.metrics = {
             "tot_episodes": [],
             "tot_timesteps": []
         }
 
+        self.logdir = logdir
         self.windows = {}
 
         self.env_name = str(datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S"))
@@ -22,6 +38,8 @@ class Logger:
         webbrowser.open("http://localhost:8097/env/" + self.env_name)
 
     def update(self, metrics):
+        self.log_progress(metrics)
+
         for key, value in metrics.items():
             if key not in self.metrics:
                 self.metrics[key] = []
@@ -71,3 +89,9 @@ class Logger:
                       yaxis={"title": "Reward", "range": [-150, 305]},
                       showlegend=False)
         self.vis._send({'data': [high, low, mean], "layout": layout, 'win': 'mywin'})
+
+    def log_progress(self, metrics):
+        logging.info(metrics)
+        with Path(self.logdir, "progress.json").open("a+") as f:
+            json.dump(metrics, f, cls=NumpyEncoder)
+            f.write("\n")
